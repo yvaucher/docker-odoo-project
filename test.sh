@@ -42,7 +42,7 @@ trap on_exit EXIT
 # run 'runtests' in the container
 # extra arguments are passed to the 'run' command (example: -e FOO=bar is added to the list of args)
 docoruntests() {
-    docker-compose -f test-compose.yml run --rm -e LOCAL_USER_ID=999 $@ odoo runtests
+    docker-compose -f /tmp/test-compose.yml run --rm -e LOCAL_USER_ID=999 $@ odoo runtests
 }
 # run 'runmigration' in the container
 # extra arguments are passed to the 'run' command (example: -e FOO=bar is added to the list of args)
@@ -56,8 +56,8 @@ docoruncmd() {
     docker-compose -f test-compose.yml run --rm -e LOCAL_USER_ID=999 $@
 }
 
-cp -ra ./example/. "$TMP/"
-
+cp -ra /tmp/example/. "$TMP/"
+ls "$TMP"
 cd "$TMP"
 
 echo '>>> Downloading Odoo src'
@@ -98,11 +98,6 @@ docoruntests -e CREATE_DB_CACHE="true" -e SUBS_MD5=testcache
 echo '>>> * run unit tests with runtests and re-use a dump'
 docoruntests -e LOAD_DB_CACHE="true" -e SUBS_MD5=testcache
 docodown
-
-echo '>>> * run tests for onbuild image'
-cp odoo/Dockerfile-onbuild odoo/Dockerfile
-sed "s|FROM .*|FROM ${IMAGE_LATEST}-onbuild|" -i odoo/Dockerfile
-cat odoo/Dockerfile
 
 docoruncmd odoo odoo --stop-after-init
 docoruntests

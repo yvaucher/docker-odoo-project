@@ -5,12 +5,13 @@ version: '2'
 
 services:
   odoo:
-    build: ./odoo/
+    image: ${BASE_IMAGE}
     depends_on:
       - db
       - kwkhtmltopdf
     volumes:
       - "data-odoo:/data/odoo"
+      - "./odoo/src:/odoo/src"
     environment:
       - DB_USER=odoo
       - DB_PASS=odoo
