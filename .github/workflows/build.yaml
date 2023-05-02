@@ -155,7 +155,7 @@ jobs:
         run: |
           sed -i 's/FROM_IMAGE/${{ matrix.odoo_serie }}:latest/' /tmp/example/test-compose.yml \
           && cd /tmp \
-          && sudo --sh -c 'export BASE_IMAGE=${{ matrix.odoo_serie }}:latest ; make VERSION=${{ matrix.odoo_serie }} test'
+          && sudo -- sh -c 'export BASE_IMAGE=${{ matrix.odoo_serie }}:latest ; make VERSION=${{ matrix.odoo_serie }} test'
 
 
   push:
