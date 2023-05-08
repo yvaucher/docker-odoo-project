@@ -154,7 +154,7 @@ jobs:
       - name: run test
         run: |
           cd /tmp \
-          && export BASE_IMAGE=${{ matrix.odoo_serie }}:latest ; make VERSION=${{ matrix.odoo_serie }} test'
+          && export BASE_IMAGE=${{ matrix.odoo_serie }}:latest ; make VERSION=${{ matrix.odoo_serie }} test
 
   push:
     needs: test
