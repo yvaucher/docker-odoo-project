@@ -42,7 +42,7 @@ trap on_exit EXIT
 # run 'runtests' in the container
 # extra arguments are passed to the 'run' command (example: -e FOO=bar is added to the list of args)
 docoruntests() {
-    docker-compose -f /tmp/test-compose.yml run --rm -e LOCAL_USER_ID=999 $@ odoo runtests
+    docker-compose -f test-compose.yml run --rm -e LOCAL_USER_ID=999 $@ odoo runtests
 }
 # run 'runmigration' in the container
 # extra arguments are passed to the 'run' command (example: -e FOO=bar is added to the list of args)
