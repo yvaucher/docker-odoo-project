@@ -66,7 +66,7 @@ wget -nv -O /tmp/odoo.tar.gz "$ODOO_URL"
 tar xfz /tmp/odoo.tar.gz -C odoo/
 mv "odoo/odoo-$VERSION" odoo/src
 ls odoo/src
-chown -R 999: odoo/
+sudo chown -R 999:999 odoo/
 echo '>>> Run test for base image'
 sed "s|FROM .*|FROM ${IMAGE_LATEST}|" -i odoo/Dockerfile
 mkdir .cachedb
