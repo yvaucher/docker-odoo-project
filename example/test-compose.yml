@@ -11,7 +11,7 @@ services:
       - kwkhtmltopdf
     volumes:
       - "data-odoo:/data/odoo"
-      - "./odoo/src:/odoo/odoo/src"
+      - "./odoo/src:/odoo/src"
     environment:
       - DB_USER=odoo
       - DB_PASS=odoo

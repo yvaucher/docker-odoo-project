@@ -65,6 +65,7 @@ rm -rf "$TMP/odoo/src"
 wget -nv -O /tmp/odoo.tar.gz "$ODOO_URL"
 tar xfz /tmp/odoo.tar.gz -C odoo/
 mv "odoo/odoo-$VERSION" odoo/src
+ls odoo/src
 chmod -R 777 odoo/src
 echo '>>> Run test for base image'
 sed "s|FROM .*|FROM ${IMAGE_LATEST}|" -i odoo/Dockerfile
