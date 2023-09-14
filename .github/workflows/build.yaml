@@ -15,6 +15,7 @@ on:
       - "master"
 
 env:
+  TARGET: GHCR
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
 
@@ -28,19 +29,11 @@ jobs:
         - odoo_serie: "14.0"
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+        uses: docker/setup-buildx-action@v2
 
       - name: Docker meta
         id: meta
@@ -50,165 +43,46 @@ jobs:
           flavor: |
               prefix=${{ matrix.odoo_serie }}-,onlatest=true
           tags: |
-              type=raw,value={{matrix.odoo_serie}}latest
-              type=raw,value={{matrix.odoo_serie}}{{date 'YYYYMMDD'}}
+              type=raw,value=${{ matrix.odoo_serie }}latest
+              type=raw,value=${{ matrix.odoo_serie }}${{date 'YYYYMMDD'}}
               type=ref,event=tag
 
-      - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v1
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.GHCR_USER }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Prepare src
+      - name: Setup build dir
         run: |
-          cp -rT common/ ${{ matrix.odoo_serie }}_dir
-          cp -r ${{ matrix.odoo_serie }}/. ${{ matrix.odoo_serie }}_dir
-          cp -r bin/ ${{ matrix.odoo_serie }}_dir
-          cp -r example ${{ matrix.odoo_serie }}_dir
-          cp -r bin-py2/ ${{ matrix.odoo_serie }}_dir
-          cp -rT common/ ${{ matrix.odoo_serie }}_dir
-          cp ${{ matrix.odoo_serie }}_dir/Dockerfile-onbuild ${{ matrix.odoo_serie }}_dir/Dockerfile-batteries-onbuild
-          sed -i "1i FROM ${BUILD_TAG}" ${{ matrix.odoo_serie }}_dir/Dockerfile-onbuild
-          sed -i "1i FROM ${BUILD_TAG}" ${{ matrix.odoo_serie }}_dir/Dockerfile-batteries
-          sed -i "1i FROM ${BUILD_TAG}-batteries" ${{ matrix.odoo_serie }}_dir/Dockerfile-batteries-onbuild
-          cp -r install/ ${{ matrix.odoo_serie }}_dir
-          cp -r start-entrypoint.d/ ${{ matrix.odoo_serie }}_dir
-          cp -r example/ ${{ matrix.odoo_serie }}_dir
-          cp -r before-migrate-entrypoint.d/ ${{ matrix.odoo_serie }}_dir
+          VERSION=${{ matrix.odoo_serie }} SRC=build make setup
+
       - name: Build
         uses: docker/build-push-action@v3
         with:
-          context: ./${{ matrix.odoo_serie }}_dir
+          context: ./build
           push: false
           load: true
           tags: ${{ matrix.odoo_serie }}:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # Temp fix
-      # https://github.com/docker/build-push-action/issues/252
-      # https://github.com/moby/buildkit/issues/1896
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-      - name: Upload example to artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: example
-          path: |
-            ./${{ matrix.odoo_serie }}_dir/example
-
-      - name: Upload Makefile to artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: Makefile
-          path: |
-            ./Makefile
-
-      - name: Upload Test to artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: test.sh
-          path: |
-            ./test.sh
-    
-      - name: Upload image to artifact
-        uses: ishworkh/docker-image-artifact-upload@v1
-        with:
-          image: ${{ matrix.odoo_serie }}:latest
-
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-        - odoo_serie: "14.0"
-    steps:
-
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: example
-          path: /tmp/example
-
-      - uses: actions/download-artifact@v2
-        with:
-          name: Makefile
-          path: /tmp/
-      - uses: actions/download-artifact@v2
-        with:
-          name: test.sh
-          path: /tmp/
-      
-      - name: Download the image from artifact
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: ${{ matrix.odoo_serie }}:latest
-
-      - name: run test
-        run: |
-          cd /tmp \
-          && export BASE_IMAGE=${{ matrix.odoo_serie }}:latest ; make VERSION=${{ matrix.odoo_serie }} test
-
-  push:
-    needs: test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-        - odoo_serie: "14.0"
-
-    if: github.event_name == 'push'
-
-    steps:
-
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v1
-
+      - name: Test
+        run: export BASE_IMAGE=${{ matrix.odoo_serie }}:latest; make VERSION=${{ matrix.odoo_serie }} test
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
+        if: github.event_name == 'push'
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      # retrieve the image generated by 'build' from cache
-      - name: Cache Docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-
-      - name: Build
+      - name: Tag & Push
+        if: github.event_name == 'push'
+        id: docker_push
         uses: docker/build-push-action@v3
         with:
-          context: ./${{ matrix.odoo_serie }}_dir
+          context: ./build
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-
-
-      - name: Tag & Push
-        id: docker_push
-        uses: docker/build-push-action@v2
-        with:
-          context: ./odoo/
-          file: ./odoo/Dockerfile
-          push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
-  
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Image digest
-        run: echo ${{ steps.docker_push.outputs.digest }}  
+        run: echo ${{ steps.docker_push.outputs.digest }}
