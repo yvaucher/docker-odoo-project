@@ -12,19 +12,18 @@ on:
     branches:
       - "release-4.5.X"
 
-
 env:
   TARGET: GHCR
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        odoo_serie: ["11.0","12.0","13.0","14.0","15.0","16.0", "17.0", "18.0"]
+        odoo_serie:
+          ["11.0", "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0"]
 
     steps:
       - uses: actions/checkout@v4
@@ -41,14 +40,14 @@ jobs:
         with:
           images: ghcr.io/camptocamp/docker-odoo-project
           flavor: |
-              prefix=${{ matrix.odoo_serie }}-,onlatest=true
+            prefix=${{ matrix.odoo_serie }}-,onlatest=true
           tags: |
-              type=raw,value={{branch}}-latest
-              type=raw,value={{branch}}-{{date 'YYYYMMDD'}}
-              type=ref,event=tag
-              type=ref,event=pr
-              type=schedule,pattern=nightly
-              type=raw,value={{branch}}
+            type=raw,value={{branch}}-latest
+            type=raw,value={{branch}}-{{date 'YYYYMMDD'}}
+            type=ref,event=tag
+            type=ref,event=pr
+            type=schedule,pattern=nightly
+            type=raw,value={{branch}}
 
       - name: Setup build dir
         run: |
@@ -67,16 +66,16 @@ jobs:
         run: make VERSION=${{ matrix.odoo_serie }} test
 
       - name: Scan image
+        if: github.event_name == 'push'
         id: scan
         uses: sysdiglabs/scan-action@v5
         with:
-            sysdig-secure-url: https://eu1.app.sysdig.com
-            stop-on-failed-policy-eval: false
-            stop-on-processing-error: false
-            image-tag: ci-4xx-latest:${{ matrix.odoo_serie }}
-            skip-upload: false
-            sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
-
+          sysdig-secure-url: https://eu1.app.sysdig.com
+          stop-on-failed-policy-eval: false
+          stop-on-processing-error: false
+          image-tag: ci-4xx-latest:${{ matrix.odoo_serie }}
+          skip-upload: false
+          sysdig-secure-token: ${{ secrets.SYSDIG_SECURE_TOKEN }}
 
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' || github.event_name == 'schedule'
@@ -98,5 +97,3 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_push.outputs.digest }}
-
-
